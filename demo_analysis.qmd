@@ -324,25 +324,12 @@ You can request this token (free of charge) via <https://www.ncdc.noaa.gov/cdo-w
 Once you have been issued the token, note it somewhere in your code (or make it available through an environment variable):
 
 ```{r}
-#| eval: false
-NOAA_WEB_API_TOKEN <- '...'
-# or
-NOAA_WEB_API_TOKEN <- Sys.getenv("NOAA_WEB_API_TOKEN")
-```
-
-```{r}
 #| echo: false
-NOAA_WEB_API_TOKEN <- Sys.getenv("NOAA_WEB_API_TOKEN")
+NOAA_WEB_API_TOKEN <- 'VGerAgVfgPaylgClNTVibLsaiLYYPZGl'
 ```
 
 
 To connect to and use the web API you may use the following R packages:
-
-```{r}
-#| eval: false
-install.packages("httr2")
-install.packages("jsonlite")
-```
 
 and the loaded via
 
@@ -351,7 +338,7 @@ library(httr2)
 library(jsonlite)
 ```
 
-The stations closest to the sites for the competition with continuously collected maximum temperatures are USC00186350 (Washington D.C.), GME00127786 (Liestal), JA000047759 (Kyoto), CA001108395 (Vancouver) and 
+The stations closest to the sites for the competition with continuously collected maximum temperatures are USC00186350 (Washington D.C.), GME00127786 (Liestal), JA000047759 (Kyoto), CA001108395 (Vancouver) and USW00014732 (New York City).
 
 ```{r}
 NOAA_API_BASE_URL <- "https://www.ncei.noaa.gov/cdo-web/api/v2/data"
@@ -406,7 +393,7 @@ get_daily_avg_temp <- function(station_id, start_date, end_date,
         req_url_query(
           datasetid = "GHCND",
           stationid = station_id,
-          datatypeid = "TAVG,TMAX",
+          datatypeid = "TMIN,TMAX",
           startdate = from,
           enddate = min(as_date(to), Sys.Date()),
           units = "metric",
@@ -449,11 +436,85 @@ historic_temperatures <- cherry |>
 ```
 
 ```{r}
+max_temps <- historic_temperatures |>
+  filter(datatype == "TMAX") |>
+  select(location, date, value) |>
+  rename(tmax = value)
+
+min_temps <- historic_temperatures |>
+  filter(datatype == "TMIN") |>
+  select(location, date, value) |>
+  rename(tmin = value)
+```
+
+I combined the maximum and minimum temperatures into a single row for each day. Then, I filtered the dataset to only include days from January-May.
+
+```{r}
+combine_max_min <- inner_join(max_temps, min_temps,
+                              by = c("location", "date")) |>
+  mutate(doy = as.integer(strftime(date, "%j")), year = strftime(date, "%Y")) |>
+  filter(doy <= 152)
+```  
+
+Then I identified the last frost for each year and added this information to the overall dataset. I retained only observations between January-May that were after the last frost and within 25 days of that last frost. I calculated the average temperature for each of the retained days.
+
+```{r}
+last_frosts <- combine_max_min |>
+  filter(tmin <= 0) |>
+  group_by(location, year) |>
+  summarise(lastfrost = max(doy))
+
+temps_with_last_frost <- inner_join(combine_max_min, last_frosts,
+                                    by = c("location", "year")) |>
+  filter(doy > lastfrost) |>
+  mutate(dslf = doy - lastfrost) |>
+  filter(dslf <= 25) |>
+  mutate(tavg = (tmax + tmin) / 2) |>
+  select(location, year, dslf, tavg)
+
+transposed_temps <- temps_with_last_frost |>
+  pivot_wider(names_from = dslf, values_from = tavg) |>
+  drop_na()
+
+transposed_temps$year <- as.integer(transposed_temps$year)
+```
+
+
+
+```{r}  
+temps_with_bloom <- inner_join(cherry, transposed_temps,
+                               by = c("location", "year"))
+```
+
+```{r}
+library(glmnet)
+
+bloom <- temps_with_bloom$bloom_doy
+
+temps_only <- temps_with_bloom |>
+  select(!c("location", "lat", "long", "alt", "year", "bloom_date", "bloom_doy"))
+temps_matrix <- as.matrix(temps_only)
+
+```
+
+```{r}
+ridge.mod <- cv.glmnet(temps_matrix, bloom, alpha = 0)
+bestlam.ridge <- ridge.mod$lambda.min
+```
+
+```{r}
 historic_temperatures |>
   filter(datatype == 'TMAX') |> 
   ggplot(aes(x = date, y = value)) + 
   geom_line() +
   labs(x = "Year", y = "Average maximum temperature (°C)") +
+  facet_grid(rows = vars(location))
+
+historic_temperatures |>
+  filter(datatype == 'TMIN') |> 
+  ggplot(aes(x = date, y = value)) + 
+  geom_line() +
+  labs(x = "Year", y = "Average minimum temperature (°C)") +
   facet_grid(rows = vars(location))
 ```
 
@@ -480,6 +541,7 @@ avg_winter_temp |>
   labs(x = "Year", y = "Average maximum temperature (°C)") +
   facet_grid(rows = vars(location))
 ```
+
 
 Using these average temperature, we can predict the peak bloom date again using linear regression with location-specific temporal trends and a global effect of average winter temperatures. 
 
