@@ -498,8 +498,18 @@ temps_matrix <- as.matrix(temps_only)
 ```
 
 ```{r}
-ridge.mod <- cv.glmnet(temps_matrix, bloom, alpha = 0)
-bestlam.ridge <- ridge.mod$lambda.min
+lasso.mod <- cv.glmnet(temps_matrix, bloom, alpha = 1)
+bestlam.lasso <- lasso.mod$lambda.min
+best.lasso.mod <- glmnet(temps_matrix, bloom, alpha = 1, lambda = bestlam.lasso)
+```
+
+```{r}
+test_obs <- as.matrix(temps_only[1,])
+predicted <- predict(best.lasso.mod, s = bestlam.lasso, newx = test_obs)
+```
+
+```{r}
+data_2026 <- read.csv("accuweather_forecast_2026.csv")
 ```
 
 ```{r}
