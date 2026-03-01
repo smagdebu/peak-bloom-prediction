@@ -40,9 +40,6 @@ cherry <- read.csv("data/washingtondc.csv") |>
   bind_rows(read.csv("data/nyc.csv"))
 ```
 
-
-## Predicting the peak bloom
-
 This helper function is provided by the competition's demo analysis.
 
 ```{r}
