@@ -273,6 +273,7 @@ set.seed(490)
 ridge.mod <- cv.glmnet(temps_matrix, bloom, alpha = 0, nfolds = 5)
 bestlam.ridge <- ridge.mod$lambda.min
 best.ridge.mod <- glmnet(temps_matrix, bloom, alpha = 0, lambda = bestlam.ridge)
+coef(best.ridge.mod)
 
 prediction_train <- predict(best.ridge.mod, s = bestlam.ridge, newx = temps_matrix)
 mse_ridge <- mean((bloom - prediction_train) ** 2)
