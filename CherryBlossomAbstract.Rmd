@@ -1,0 +1,15 @@
+---
+title: "Abstract"
+output: html_document
+date: "2026-02-28"
+---
+
+The relationship between temperature and the day that a flower blooms has been long-documented, being recorded most definitively in the establishment of Quetelet’s law. Quetelet determined that a plant will flower after being exposed to a specific squared temperature threshold, which varies by plant. This period of accumulation is also referred to as the growing degree days for the plant and cannot be interrupted by frost. The growing degree days of a plant is a process that spans across numerous days, within which days will have differing temperatures and therefore contribute to varying degrees to the temperature accumulation. This model sought to detect an underlying importance to these individual days in determining peak bloom date and apply this to predicting future peak bloom dates.
+
+The model in question is a ridge regression model, of which the predictors are the average temperatures of the 25 days after the last frost. The decision to use ridge regression corresponded to its capacity to handle multicollinearity. The temperatures and weather for one day are likely influenced by the weather of the most immediate days around it, so this seemed necessary to account for.
+
+The composition of the model was heavily influenced by the nature of the data used. One defining factor was the data that was used for the 2026 predictions. The Accuweather forecasts for 2026 went up to May 31, so the model only considered temperatures from January 1 to May 31 when being built. This further impacted the number of days after the last frost used for the analysis. If too many days were selected, May 31 could be exceeded for years with any late cold snaps. Therefore, 25 days after the last frost was decided as the scope of the analysis.
+
+The ridge regression model was built using 5-fold cross-validation to determine an optimal lambda value. Ultimately, all coefficients other than the intercept were close to zero.  Comparing the actual bloom dates of the training data and the predictions revealed potential accuracy but also possible struggles in prediction. Actual peak bloom dates around day 90 of the year were predicted well, but the model struggled to predict bloom dates that were much earlier (before day 80 of the year) or later (after day 100 of the year) than that.
+
+Nonetheless, the model was applied to data for 2026 to make predictions. The final predictions for each location in 2026 were very similar, with the largest range only being a 3-day difference. This model has room for improvement and further avenues to explore. Considering the interaction between locations may help improve prediction variability across locations. Using more weather data can also help the model. One example of limitations in data analysis included that Kyoto’s weather data lacked many days’ minimum and/or maximum temperatures, restricting the capability for Kyoto to be included in and affect the model.
